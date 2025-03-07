@@ -1,0 +1,28 @@
+{
+    "camera": {
+        "device_id": 0,
+        "width": 1280,
+        "height": 720,
+        "fps": 30
+    },
+    "board": {
+        "size": 19,
+        "corner_detection": {
+            "min_distance": 20,
+            "quality_level": 0.01,
+            "block_size": 3
+        }
+    },
+    "analysis": {
+        "territory_threshold": 0.6,
+        "dead_stone_threshold": 1
+    },
+    "output": {
+        "save_frames": true,
+        "save_analysis": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "watchgo.log"
+    }
+}
