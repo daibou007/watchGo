@@ -23,7 +23,7 @@ class WatchGo:
         self.logger = Logger(self.config)
         self.history = []
         self.current_game_id = None
-        self.interactive = InteractiveBoard(self.config)
+        self.interactive = InteractiveBoard(self.config, start_index=90)
 
     def start(self):
         """启动应用"""

@@ -5,11 +5,12 @@ from board_manager import BoardManager
 
 
 class InteractiveBoard(BoardManager):
-    def __init__(self, config):
+    def __init__(self, config, start_index=1):
         super().__init__(config)
         self.last_ko_position = None  # 记录上一个劫争位置
         # self.move_history = []  # 记录落子历史
         self.dead_stones_history = []  # 记录死子历史
+        self.start_index = start_index  # 添加起始编号支持
 
     def start(self, initial_image_path="resource/15.jpg"):
         """启动交互式棋盘"""
@@ -41,8 +42,8 @@ class InteractiveBoard(BoardManager):
                     offset_y = (height - grid_size * (self.config.board.size - 1)) // 2
 
                     # 修正坐标计算方式
-                    board_x = int((x - offset_x + grid_size/2) / grid_size)
-                    board_y = int((y - offset_y + grid_size/2) / grid_size)
+                    board_x = int((x - offset_x + grid_size / 2) / grid_size)
+                    board_y = int((y - offset_y + grid_size / 2) / grid_size)
 
                     # 检查是否在有效范围内
                     if (
@@ -58,7 +59,7 @@ class InteractiveBoard(BoardManager):
                         if self._is_ko_point(board_x, board_y):
                             self.logger.info(f"位置 ({board_x}, {board_y}) 是劫争点")
                             return
-                        
+
                         # 左键放黑子，右键放白子
                         stone_color = 1 if event == cv2.EVENT_LBUTTONDOWN else 2
 
@@ -69,7 +70,7 @@ class InteractiveBoard(BoardManager):
                         # 临时落子
                         self.board[board_x][board_y] = stone_color
 
-                       # 判断是否是禁手点（对黑白子都进行判断）
+                        # 判断是否是禁手点（对黑白子都进行判断）
                         if self._is_forbidden_point(board_x, board_y, stone_color):
                             # 如果是禁手点，恢复棋盘状态
                             self.board[board_x][board_y] = 0
@@ -78,7 +79,9 @@ class InteractiveBoard(BoardManager):
                                 dead_stones = self.dead_stones_history.pop()
                                 for x, y, color in dead_stones:
                                     self.board[x][y] = color
-                            self.logger.info(f"位置 ({board_x}, {board_y}) 是禁手点，不能落子")
+                            self.logger.info(
+                                f"位置 ({board_x}, {board_y}) 是禁手点，不能落子"
+                            )
                             return
 
                         # 移除死子并检查劫争
@@ -88,7 +91,9 @@ class InteractiveBoard(BoardManager):
                         self.move_history.append((board_x, board_y, stone_color))
 
                         # 重绘棋盘
-                        board_img = self.draw_board(None, self.board)
+                        board_img = self.draw_board(
+                            None, self.board, self.start_index
+                        )  # 传入起始编号
                         cv2.imshow(board_window, board_img)
                         # 打印更新后的棋盘状态
                         self.print_board_state()
@@ -123,7 +128,9 @@ class InteractiveBoard(BoardManager):
                 if key == 27:  # ESC键撤销上一手
                     if self._restore_last_move():
                         # 重绘棋盘
-                        board_img = self.draw_board(None, self.board)
+                        board_img = self.draw_board(
+                            None, self.board, self.start_index
+                        )  # 传入起始编号
                         cv2.imshow(board_window, board_img)
                         self.print_board_state()
                     continue
@@ -222,29 +229,30 @@ class InteractiveBoard(BoardManager):
         # 八个方向：水平、垂直、两个对角线，每个方向都有两个方向
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
         three_count = 0
-        
+
         for dx, dy in directions:
             # 检查两个方向
-            if self._check_open_three(x, y, dx, dy, stone_color) or \
-               self._check_open_three(x, y, -dx, -dy, stone_color):
+            if self._check_open_three(
+                x, y, dx, dy, stone_color
+            ) or self._check_open_three(x, y, -dx, -dy, stone_color):
                 three_count += 1
-                
+
             # 如果找到两个活三，则为三三禁手
             if three_count >= 2:
                 return True
         return False
-        
+
     def _check_open_three(self, x, y, dx, dy, stone_color):
         """检查是否形成活三"""
         # 记录当前位置的原始值
         original_value = self.board[x][y]
         self.board[x][y] = stone_color
-        
+
         # 在方向上统计连续的棋子
         count = 1
         space_count = 0
         line = []
-        
+
         # 向一个方向延伸
         tx, ty = x + dx, y + dy
         while 0 <= tx < self.config.board.size and 0 <= ty < self.config.board.size:
@@ -257,7 +265,7 @@ class InteractiveBoard(BoardManager):
             else:
                 break
             tx, ty = tx + dx, ty + dy
-            
+
         # 向相反方向延伸
         tx, ty = x - dx, y - dy
         while 0 <= tx < self.config.board.size and 0 <= ty < self.config.board.size:
@@ -270,49 +278,50 @@ class InteractiveBoard(BoardManager):
             else:
                 break
             tx, ty = tx - dx, ty - dy
-            
+
         # 恢复原始值
         self.board[x][y] = original_value
-        
+
         # 判断是否是活三
         # 活三的模式：
         # 1. "010110" 或 "011010" 或 "010101"（其中1表示己方棋子，0表示空位）
         patterns = ["010110", "011010", "010101"]
         line_str = "".join(map(str, line))
-        
+
         for pattern in patterns:
             if pattern in line_str:
                 return True
-                
+
         return False
 
     def _has_double_four(self, x, y, stone_color):
         """检查是否有四四禁手"""
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
         four_count = 0
-        
+
         for dx, dy in directions:
             # 检查两个方向
-            if self._check_four(x, y, dx, dy, stone_color) or \
-               self._check_four(x, y, -dx, -dy, stone_color):
+            if self._check_four(x, y, dx, dy, stone_color) or self._check_four(
+                x, y, -dx, -dy, stone_color
+            ):
                 four_count += 1
-                
+
             # 如果找到两个四，则为四四禁手
             if four_count >= 2:
                 return True
         return False
-        
+
     def _check_four(self, x, y, dx, dy, stone_color):
         """检查是否形成四"""
         # 记录当前位置的原始值
         original_value = self.board[x][y]
         self.board[x][y] = stone_color
-        
+
         # 在方向上统计连续的棋子
         count = 1
         space_count = 0
         line = []
-        
+
         # 向一个方向延伸
         tx, ty = x + dx, y + dy
         while 0 <= tx < self.config.board.size and 0 <= ty < self.config.board.size:
@@ -325,7 +334,7 @@ class InteractiveBoard(BoardManager):
             else:
                 break
             tx, ty = tx + dx, ty + dy
-            
+
         # 向相反方向延伸
         tx, ty = x - dx, y - dy
         while 0 <= tx < self.config.board.size and 0 <= ty < self.config.board.size:
@@ -338,21 +347,21 @@ class InteractiveBoard(BoardManager):
             else:
                 break
             tx, ty = tx - dx, ty - dy
-            
+
         # 恢复原始值
         self.board[x][y] = original_value
-        
+
         # 判断是否是四
         # 四的模式：
         # 1. "11110" 或 "01111"（冲四）
         # 2. "11011"（跳四）
         patterns = ["11110", "01111", "11011"]
         line_str = "".join(map(str, line))
-        
+
         for pattern in patterns:
             if pattern in line_str:
                 return True
-                
+
         return False
 
     # def _remove_dead_stones(self):
@@ -401,7 +410,7 @@ class InteractiveBoard(BoardManager):
         # 检查四四禁手
         if self._has_double_four(x, y, stone_color):
             return True
-        
+
         return False
 
     # def _is_forbidden_point(self, x, y, stone_color):
@@ -409,7 +418,7 @@ class InteractiveBoard(BoardManager):
     #     # 检查劫争
     #     if self._is_ko_point(x, y):
     #         return True
-            
+
     #     # 临时落子以检查禁手
     #     self.board[x][y] = stone_color
     #     is_forbidden = False
@@ -418,132 +427,17 @@ class InteractiveBoard(BoardManager):
     #     if self._has_overline(x, y, stone_color):
     #         is_forbidden = True
     #     # ... 其他禁手检查 ...
-        
+
     #     # 恢复棋盘状态
     #     self.board[x][y] = 0
     #     return is_forbidden
-
-    def _is_ko_point(self, x, y):
-        """判断是否是劫争点"""
-        if self.last_ko_position == (x, y):
-            return True
-        return False
-
-    # def _remove_dead_stones(self):
-    #     """移除死子并更新劫争状态"""
-    #     dead_stones = []
-    #     # 遍历整个棋盘找出死子
-    #     for x in range(self.config.board.size):
-    #         for y in range(self.config.board.size):
-    #             if self.board[x][y] != 0 and not self._has_liberty(x, y):
-    #                 dead_stones.append((x, y))
-
-    #     # 检查是否形成劫
-    #     if len(dead_stones) == 1:
-    #         x, y = dead_stones[0]
-    #         # 检查是否只吃掉一个子且周围都是对方的子
-    #         if self._is_potential_ko(x, y):
-    #             self.last_ko_position = (x, y)
-    #         else:
-    #             self.last_ko_position = None
-    #     else:
-    #         self.last_ko_position = None
-
-    #     # 移除死子
-    #     for x, y in dead_stones:
-    #         self.board[x][y] = 0
-
-    # def _remove_dead_stones(self):
-    #     """移除死子并更新劫争状态"""
-    #     dead_stones = []
-    #     # 遍历整个棋盘找出死子
-    #     for x in range(self.config.board.size):
-    #         for y in range(self.config.board.size):
-    #             if self.board[x][y] != 0 and not self._has_liberty(x, y):
-    #                 dead_stones.append((x, y, self.board[x][y]))  # 记录坐标和颜色
-
-    #     # 检查是否形成劫
-    #     if len(dead_stones) == 1:
-    #         x, y, _ = dead_stones[0]
-    #         if self._is_potential_ko(x, y):
-    #             self.last_ko_position = (x, y)
-    #         else:
-    #             self.last_ko_position = None
-    #     else:
-    #         self.last_ko_position = None
-
-    #     # 如果有死子，记录到历史
-    #     if dead_stones:
-    #         self.dead_stones_history.append(dead_stones)
-
-    #     # 移除死子
-    #     for x, y, _ in dead_stones:
-    #         self.board[x][y] = 0
-
-    # def _remove_dead_stones(self):
-    #     """移除死子并更新劫争状态"""
-    #     dead_stones = []
-    #     last_move = self.move_history[-1] if self.move_history else None
-    #     last_move_color = last_move[2] if last_move else None
-    #     opponent_color = 3 - last_move_color if last_move_color else None
-        
-    #     # 先检查对手的棋子
-    #     for x in range(self.config.board.size):
-    #         for y in range(self.config.board.size):
-    #             if self.board[x][y] == opponent_color and not self._has_liberty(x, y):
-    #                 dead_stones.append((x, y, self.board[x][y]))
-
-    #     # 如果对手没有死子，再检查己方的死子（跳过最后落子）
-    #     if not dead_stones:
-    #         for x in range(self.config.board.size):
-    #             for y in range(self.config.board.size):
-    #                 if last_move and (x, y) == (last_move[0], last_move[1]):
-    #                     continue
-    #                 if self.board[x][y] == last_move_color and not self._has_liberty(x, y):
-    #                     dead_stones.append((x, y, self.board[x][y]))
-
-    #     # 检查是否形成劫
-    #     if len(dead_stones) == 1:
-    #         x, y, _ = dead_stones[0]
-    #         if self._is_potential_ko(x, y):
-    #             self.last_ko_position = (x, y)
-    #         else:
-    #             self.last_ko_position = None
-    #     else:
-    #         self.last_ko_position = None
-
-    #     # 如果有死子，记录到历史
-    #     if dead_stones:
-    #         self.dead_stones_history.append(dead_stones)
-
-    #     # 移除死子
-    #     for x, y, _ in dead_stones:
-    #         self.board[x][y] = 0   
-
-    # def _restore_last_move(self):
-    #     """恢复上一手棋"""
-    #     if not self.move_history:
-    #         return False
-
-    #     # 恢复死子
-    #     if self.dead_stones_history:
-    #         dead_stones = self.dead_stones_history.pop()
-    #         for x, y, color in dead_stones:
-    #             self.board[x][y] = color
-
-    #     # 移除最后一手棋
-    #     last_x, last_y, _ = self.move_history.pop()
-    #     self.board[last_x][last_y] = 0
-    #     return True
-
 
     def _remove_dead_stones(self):
         """移除死子并更新劫争状态"""
         dead_stones = []
         last_move = self.move_history[-1] if self.move_history else None
         last_move_color = last_move[2] if last_move else None
-        opponent_color = 3 - last_move_color if last_move_color else None
-        
+
         # 检查所有棋子的气
         for x in range(self.config.board.size):
             for y in range(self.config.board.size):
@@ -554,74 +448,32 @@ class InteractiveBoard(BoardManager):
         # 如果有死子，记录到历史
         if dead_stones:
             self.dead_stones_history.append((dead_stones, self.board.copy()))
+            # 记录当前棋盘镜像和吃子方颜色
+            self.last_capture_mirror = self._generate_board_mirror()
+            self.last_capture_color = last_move_color
 
         # 移除死子
         for x, y, _ in dead_stones:
             self.board[x][y] = 0
 
-        # 检查是否形成劫
-        if len(dead_stones) == 1:
-            x, y, _ = dead_stones[0]
-            if self._is_potential_ko(x, y):
-                self.last_ko_position = (x, y)
-            else:
-                self.last_ko_position = None
-        else:
-            self.last_ko_position = None
+    def _is_ko_point(self, x, y):
+        """判断是否是劫争点"""
+        # 模拟落子并生成镜像
+        self.board[x][y] = 3 - self.board[x][y]  # 模拟落子
+        self._remove_dead_stones()  # 模拟吃子
+        simulated_mirror = self._generate_board_mirror()
+        self.board[x][y] = 0  # 恢复棋盘状态
 
-    def _remove_dead_stones_old(self):
-        """移除死子并更新劫争状态"""
-        dead_stones = []
-        last_move = self.move_history[-1] if self.move_history else None
-        last_move_color = last_move[2] if last_move else None
-        opponent_color = 3 - last_move_color if last_move_color else None
-        
-        # 记录当前位置的状态，用于判断劫争
-        current_state = self.board.copy()
-        
-        # 先检查对手的棋子
-        for x in range(self.config.board.size):
-            for y in range(self.config.board.size):
-                if self.board[x][y] == opponent_color and not self._has_liberty(x, y):
-                    dead_stones.append((x, y, self.board[x][y]))
+        # 比较镜像
+        if simulated_mirror == self.last_capture_mirror:
+            # 判断上一次吃子是否为对方颜色
+            if self.last_capture_color == 3 - self.board[x][y]:
+                return True
+        return False
 
-        # 如果对手没有死子，再检查己方的死子（跳过最后落子）
-        if not dead_stones:
-            for x in range(self.config.board.size):
-                for y in range(self.config.board.size):
-                    if last_move and (x, y) == (last_move[0], last_move[1]):
-                        continue
-                    if self.board[x][y] == last_move_color and not self._has_liberty(x, y):
-                        dead_stones.append((x, y, self.board[x][y]))
-
-        # 如果有死子，记录到历史
-        if dead_stones:
-            self.dead_stones_history.append((dead_stones, current_state))
-
-        # 移除死子
-        for x, y, _ in dead_stones:
-            self.board[x][y] = 0
-
-        # 检查是否形成劫
-        if len(dead_stones) == 1 and self.dead_stones_history:
-            x, y, _ = dead_stones[0]
-            if self._is_potential_ko(x, y) and self._is_ko_state():
-                self.last_ko_position = (x, y)
-            else:
-                self.last_ko_position = None
-        else:
-            self.last_ko_position = None
-
-    def _is_ko_state(self):
-        """检查是否形成劫争状态"""
-        if len(self.dead_stones_history) < 2:
-            return False
-            
-        # 获取上一次的棋盘状态
-        _, last_state = self.dead_stones_history[-1]
-        
-        # 比较当前状态和上一次吃子前的状态
-        return np.array_equal(self.board, last_state)
+    def _generate_board_mirror(self):
+        """生成当前棋盘的镜像"""
+        return np.flip(self.board, axis=0).tolist()
 
     def _restore_last_move(self):
         """恢复上一手棋"""
@@ -638,7 +490,6 @@ class InteractiveBoard(BoardManager):
         last_x, last_y, _ = self.move_history.pop()
         self.board[last_x][last_y] = 0
         return True
-
 
     def _is_potential_ko(self, x, y):
         """判断是否可能形成劫"""

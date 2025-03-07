@@ -202,7 +202,7 @@ class BoardManager:
         except Exception as e:
             self.logger.error(f"更新棋盘状态失败: {str(e)}")
 
-    def draw_board(self, frame, board_state=None):
+    def draw_board(self, frame, board_state=None, start_index=1):
         """在图像上绘制棋盘和棋子"""
         try:
             if board_state is None:
@@ -274,7 +274,12 @@ class BoardManager:
                             )
 
             # 添加落子顺序编号
-            for idx, (move_x, move_y, color) in enumerate(self.move_history, 1):
+            latest_moves = {}
+            for idx, (move_x, move_y, color) in enumerate(self.move_history, start_index):
+                # 记录每个位置的最新编号
+                latest_moves[(move_x, move_y)] = idx
+
+            for (move_x, move_y), idx in latest_moves.items():
                 # 只有当该位置确实有棋子时才绘制编号
                 if board_state[move_x][move_y] > 0:
                     x = offset_x + move_x * grid_size
@@ -283,7 +288,17 @@ class BoardManager:
                     # 设置文本参数
                     text = str(idx)
                     font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = grid_size * 0.015
+                    # 根据编号长度动态调整字体大小
+                    if len(text) == 1:
+                        font_scale = grid_size * 0.015
+                    elif len(text) == 2:
+                        font_scale = grid_size * 0.012
+                    elif len(text) == 3:
+                        font_scale = grid_size * 0.010
+                    elif len(text) == 4:
+                        font_scale = grid_size * 0.008
+                    else:
+                        font_scale = grid_size * 0.006
                     thickness = 1
                     
                     # 获取文本大小以居中显示
