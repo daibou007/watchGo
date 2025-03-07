@@ -1,12 +1,20 @@
 {
+    "calibration_file": "calibration.npy",
     "camera": {
         "device_id": 0,
         "width": 1280,
         "height": 720,
         "fps": 30
     },
+    "cascade_files": {
+        "empty": "emptyCascade.xml",
+        "black": "blackCascade.xml",
+        "white": "whiteCascade.xml"
+    },
+    "board_size": 19,
     "board": {
         "size": 19,
+        "block_size": 40,
         "corner_detection": {
             "min_distance": 20,
             "quality_level": 0.01,
@@ -22,7 +30,7 @@
         "save_analysis": true
     },
     "logging": {
-        "level": "INFO",
+        "level": "DEBUG",
         "file": "watchgo.log"
     }
 }

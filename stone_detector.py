@@ -10,7 +10,7 @@ class StoneDetector:
     def detect_stones(self, board_image):
         """检测棋子位置和颜色"""
         try:
-            board_size = self.config.board['size']
+            board_size = self.config.board.size
             board_state = np.zeros((board_size, board_size), dtype=np.int8)
             
             # 转换为HSV颜色空间
@@ -71,4 +71,6 @@ class StoneDetector:
                 
             return True
             
-        except
+        except Exception as e:
+            self.logger.error(f"落子验证失败: {str(e)}")
+            return False
