@@ -669,20 +669,38 @@ def blankBoard(boardBlockSize):
 
 
 def printBoard(board):
-    """在控制台打印棋盘状态"""
+    """在控制台打印棋盘状态，保持正方形显示"""
     print("当前棋盘状态:")
+    # 使用直线和直角字符
+    top_left = "┌"     # 左上角
+    top_right = "┐"    # 右上角
+    bottom_left = "└"   # 左下角
+    bottom_right = "┘"  # 右下角
+    horizontal = "─"    # 水平线
+    vertical = "│"      # 垂直线
+    black = "⚫"        # 黑子
+    white = "⚪"        # 白子
+    empty = "十"        # 空位
+    
+    # 打印顶部边框（修正水平线长度）
+    print(top_left + horizontal * board.shape[0]*2 + top_right)
+    
+    # 打印棋盘内容
     for y in range(board.shape[1]):
-        row = ""
+        row = vertical  # 行首
         for x in range(board.shape[0]):
             if board[x][y] == 0:
-                row += "+ "
+                row += empty
             elif board[x][y] == 1:
-                row += "⚫ "
+                row += black
             elif board[x][y] == 2:
-                row += "⚪ "
+                row += white
+        row += vertical  # 行尾
         print(row)
+    
+    # 打印底部边框（修正水平线长度）
+    print(bottom_left + horizontal * board.shape[0]*2 + bottom_right)
     print()
-
 
 def drawBoardC(board, size=(500, 500)):
     """绘制棋盘界面"""
@@ -721,9 +739,14 @@ def drawBoardC(board, size=(500, 500)):
         elif len(corners) == 2:
             dst_points = estimateCornerFrom2(np.array(corners, dtype="float32"))
         
-        if dst_points is not None:
+        # 检查dst_points是否存在且有效
+        if 'dst_points' in locals() and dst_points is not None:
             # 应用透视变换
-            matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+            # 检查dst_points是否存在且有效
+            if 'dst_points' in locals() and dst_points is not None:
+                matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+            else:
+                matrix = None
             
             # 绘制黑白棋子
             for x in range(boardSize):
